@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>米团小工具</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --line:#273040;
+    --txt:#e6edf6; --dim:#8b98a9; --accent:#4dc9c0; --accent2:#7aa2f7;
+    --warn:#f0a35e; --bad:#e5646e; --ok:#5ec97a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:radial-gradient(1200px 600px at 20% -10%, #16323b 0%, var(--bg) 55%) fixed;
+    color:var(--txt); font:15px/1.6 "Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    display:flex; justify-content:center; padding:28px 16px 60px;
+  }
+  .app{width:100%; max-width:780px}
+  header{display:flex; align-items:baseline; gap:12px; margin-bottom:18px}
+  h1{font-size:20px; margin:0; letter-spacing:.5px}
+  .sub{color:var(--dim); font-size:12px}
+  .tabs{display:flex; gap:6px; background:var(--panel); padding:5px; border-radius:12px;
+        border:1px solid var(--line); margin-bottom:18px}
+  .tabs button{
+    flex:1; padding:9px 0; border:0; border-radius:8px; background:transparent;
+    color:var(--dim); font-size:14px; cursor:pointer; transition:.15s; font-family:inherit;
+  }
+  .tabs button:hover{color:var(--txt); background:var(--panel2)}
+  .tabs button.on{background:var(--panel2); color:var(--accent); box-shadow:inset 0 0 0 1px var(--line)}
+  section{display:none} section.on{display:block}
+
+  /* 番茄钟 */
+  .clock{display:flex; flex-direction:column; align-items:center; gap:16px;
+         background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:26px 20px}
+  .ringwrap{position:relative; width:230px; height:230px}
+  svg{transform:rotate(-90deg)}
+  .ring-bg{fill:none; stroke:var(--panel2); stroke-width:12}
+  .ring-fg{fill:none; stroke:var(--accent); stroke-width:12; stroke-linecap:round;
+           transition:stroke-dashoffset .3s linear, stroke .3s}
+  .time{position:absolute; inset:0; display:flex; flex-direction:column;
+        align-items:center; justify-content:center}
+  .time b{font-size:44px; font-variant-numeric:tabular-nums; letter-spacing:1px; font-weight:600}
+  .time span{color:var(--dim); font-size:13px; margin-top:2px}
+  .modes{display:flex; gap:8px}
+  .modes button{padding:6px 14px; border-radius:20px; border:1px solid var(--line);
+    background:transparent; color:var(--dim); cursor:pointer; font-size:13px; font-family:inherit}
+  .modes button.on{border-color:var(--accent); color:var(--accent); background:#4dc9c015}
+  .btns{display:flex; gap:10px}
+  .btn{padding:10px 26px; border-radius:10px; border:1px solid var(--line);
+       background:var(--panel2); color:var(--txt); cursor:pointer; font-size:15px; font-family:inherit;
+       transition:.15s}
+  .btn:hover{border-color:var(--accent); color:var(--accent)}
+  .btn.primary{background:var(--accent); color:#062124; border-color:var(--accent); font-weight:600}
+  .btn.primary:hover{filter:brightness(1.1); color:#062124}
+  .stat{color:var(--dim); font-size:13px}
+  .stat b{color:var(--txt)}
+
+  /* 通用表单 */
+  .row{display:flex; gap:8px; margin-bottom:14px}
+  input,select,textarea{
+    background:var(--panel); border:1px solid var(--line); color:var(--txt);
+    border-radius:10px; padding:10px 12px; font:inherit; outline:none; width:100%;
+  }
+  input:focus,select:focus{border-color:var(--accent)}
+  input::placeholder{color:#5b6675}
+  .btn.sm{padding:10px 16px; font-size:14px; white-space:nowrap}
+  .list{display:flex; flex-direction:column; gap:8px}
+  .item{display:flex; align-items:center; gap:12px; background:var(--panel);
+        border:1px solid var(--line); border-radius:12px; padding:12px 14px}
+  .item .grow{flex:1; min-width:0; word-break:break-all}
+  .item.done .txt{color:var(--dim); text-decoration:line-through}
+  .chk{width:20px; height:20px; border-radius:6px; border:1.5px solid var(--line);
+       background:transparent; cursor:pointer; flex:0 0 auto; display:grid; place-items:center;
+       color:transparent; font-size:13px; padding:0}
+  .chk.on{background:var(--accent); border-color:var(--accent); color:#062124}
+  .del{border:0; background:transparent; color:#4b5666; cursor:pointer; font-size:16px;
+       padding:2px 6px; border-radius:6px; flex:0 0 auto}
+  .del:hover{color:var(--bad); background:#e5646e18}
+  .empty{color:#4b5666; text-align:center; padding:26px 0; font-size:14px}
+  .filters{display:flex; gap:8px; margin-bottom:12px}
+  .filters button{border:1px solid var(--line); background:transparent; color:var(--dim);
+    border-radius:20px; padding:5px 14px; cursor:pointer; font-size:13px; font-family:inherit}
+  .filters button.on{color:var(--accent); border-color:var(--accent)}
+  .foot{display:flex; justify-content:space-between; align-items:center;
+        color:var(--dim); font-size:12px; margin-top:10px}
+
+  /* 备份 */
+  header{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .bak{margin-left:auto;display:flex;gap:6px;align-items:center}
+  /* 记账统计 */
+  .charts{display:grid;grid-template-columns:270px 1fr;gap:16px;margin:14px 0}
+  @media (max-width:640px){.charts{grid-template-columns:1fr}}
+  .chart{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .chart-h{font-size:12px;color:var(--dim);margin-bottom:10px}
+  .pie-wrap{display:flex;gap:12px;align-items:center}
+  .pie{width:104px;height:104px;flex:none}
+  .legend{display:flex;flex-direction:column;gap:3px;font-size:11.5px;min-width:0;flex:1}
+  .legend div{display:flex;align-items:center;gap:6px}
+  .legend i{width:8px;height:8px;border-radius:2px;flex:none;display:block}
+  .legend span{flex:1;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .legend b{font-weight:500;color:var(--txt);flex:none;font-variant-numeric:tabular-nums}
+  .daily{display:flex;flex-direction:column;gap:4px;max-height:190px;overflow:auto}
+  .drow{display:flex;align-items:center;gap:8px;font-size:11.5px}
+  .drow span{width:72px;color:var(--dim);flex:none}
+  .dtrack{flex:1;height:8px;background:var(--panel);border-radius:99px;overflow:hidden}
+  .dfill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--warn),var(--bad))}
+  .drow b{width:64px;text-align:right;color:var(--txt);font-weight:500;flex:none}
+  .due{max-width:180px;font-size:12px}
+  .item .dueAt{font-size:11px;color:var(--dim);margin-left:6px}
+  .item .dueAt.soon{color:var(--warn)}
+  .item .dueAt.late{color:var(--bad)}
+  /* 记账 */
+  .cards{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px}
+  .card .k{color:var(--dim); font-size:12px; margin-bottom:4px}
+  .card .v{font-size:22px; font-variant-numeric:tabular-nums; font-weight:600}
+  .v.out{color:var(--warn)} .v.in{color:var(--ok)}
+  .tag{font-size:11px; padding:2px 8px; border-radius:20px; background:var(--panel2);
+       color:var(--dim); flex:0 0 auto}
+  .tag.out{color:var(--warn); background:#f0a35e15}
+  .tag.in{color:var(--ok); background:#5ec97a15}
+  .amt{font-variant-numeric:tabular-nums; font-weight:600; flex:0 0 auto}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>🐟 米团小工具</h1>
+    <span class="sub">番茄钟 / 待办 / 记账 · 数据只存在本机浏览器</span>
+    <span class="bak">
+      <input type="file" id="bakFile" accept=".json,application/json" hidden>
+      <button class="btn sm" id="bakExport" title="把三个工具的数据打包成一个 JSON 下载">备份</button>
+      <button class="btn sm" id="bakImport" title="从备份文件恢复（会覆盖当前数据）">恢复</button>
+    </span>
+  </header>
+
+  <nav class="tabs">
+    <button data-tab="pomo" class="on">番茄钟</button>
+    <button data-tab="todo">待办</button>
+    <button data-tab="ledger">记账</button>
+  </nav>
+
+  <!-- ================= 番茄钟 ================= -->
+  <section id="pomo" class="on">
+    <div class="clock">
+      <div class="modes">
+        <button data-mode="work" class="on">专注 25</button>
+        <button data-mode="short">短休 5</button>
+        <button data-mode="long">长休 15</button>
+      </div>
+      <div class="ringwrap">
+        <svg width="230" height="230">
+          <circle class="ring-bg" cx="115" cy="115" r="103"></circle>
+          <circle class="ring-fg" id="ring" cx="115" cy="115" r="103"
+                  stroke-dasharray="647" stroke-dashoffset="0"></circle>
+        </svg>
+        <div class="time"><b id="clock">25:00</b><span id="modeLabel">专注中</span></div>
+      </div>
+      <div class="btns">
+        <button class="btn primary" id="btnToggle">开始</button>
+        <button class="btn" id="btnReset">重置</button>
+      </div>
+      <div class="stat">今天已完成 <b id="doneCount">0</b> 个番茄 · 累计专注 <b id="totalMin">0</b> 分钟</div>
+    </div>
+  </section>
+
+  <!-- ================= 待办 ================= -->
+  <section id="todo">
+    <div class="row">
+      <input id="todoInput" placeholder="要做什么？回车添加" autocomplete="off">
+      <input type="datetime-local" id="todoDue" class="due" title="截止时间（可空）">
+      <button class="btn sm" id="todoAdd">添加</button>
+    </div>
+    <div class="hint" style="color:var(--dim);font-size:12px;margin:-4px 0 10px">
+      填了截止时间的话，到点会弹系统通知（第一次会问你要不要允许）。
+    </div>
+    <div class="filters">
+      <button data-filter="all" class="on">全部</button>
+      <button data-filter="open">未完成</button>
+      <button data-filter="done">已完成</button>
+    </div>
+    <div class="list" id="todoList"></div>
+    <div class="foot">
+      <span id="todoStat">0 项</span>
+      <button class="del" id="todoClear">清空已完成</button>
+    </div>
+  </section>
+
+  <!-- ================= 记账 ================= -->
+  <section id="ledger">
+    <div class="cards">
+      <div class="card"><div class="k">当月支出</div><div class="v out" id="sumOut">0.00</div></div>
+      <div class="card"><div class="k">当月收入</div><div class="v in" id="sumIn">0.00</div></div>
+      <div class="card"><div class="k">当月结余</div><div class="v" id="sumNet">0.00</div></div>
+    </div>
+    <div class="row">
+      <select id="ldMonth" style="max-width:150px"></select>
+      <span style="color:var(--dim);font-size:12px" id="ldMonthHint"></span>
+    </div>
+    <div class="row">
+      <select id="ldType" style="max-width:100px">
+        <option value="out">支出</option>
+        <option value="in">收入</option>
+      </select>
+      <input id="ldAmt" type="number" step="0.01" min="0" placeholder="金额" style="max-width:120px">
+      <input id="ldCat" list="cats" placeholder="分类" style="max-width:130px">
+      <datalist id="cats">
+        <option>吃饭</option><option>交通</option><option>购物</option><option>房租</option>
+        <option>娱乐</option><option>医药</option><option>工资</option><option>其他</option>
+      </datalist>
+      <input id="ldNote" placeholder="备注（可空）">
+      <button class="btn sm" id="ldAdd">记一笔</button>
+    </div>
+    <div class="charts">
+      <div class="chart">
+        <div class="chart-h" id="ldMonthLabel">分类</div>
+        <div class="pie-wrap">
+          <svg class="pie" id="ldPie" viewBox="0 0 100 100"></svg>
+          <div class="legend" id="ldLegend"></div>
+        </div>
+      </div>
+      <div class="chart">
+        <div class="chart-h">每日支出</div>
+        <div class="daily" id="ldDaily"></div>
+      </div>
+    </div>
+    <div class="list" id="ldList"></div>
+    <div class="foot">
+      <span id="ldStat">本月 0 笔</span>
+      <span style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <input type="file" id="ldFile" accept=".csv,.txt" hidden>
+        <button class="btn sm" id="ldImport">导入账单</button>
+      </span>
+    </div>
+    <div class="hint" id="ldImportHint" style="color:var(--dim);font-size:12px;margin-top:6px">
+      支持支付宝 / 微信导出的账单 CSV。导入时按交易单号去重，重复的会跳过。
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+  };
+  const today = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
+  /** 单行 CSV 拆分：处理双引号里的逗号、转义的双引号 */
+  const parseCsvLine = (line) => {
+    const out = [];
+    let cur = "", q = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (q) {
+        if (ch === '"') {
+          if (line[i + 1] === '"') { cur += '"'; i++; } else q = false;
+        } else cur += ch;
+      } else if (ch === '"') q = true;
+      else if (ch === ",") { out.push(cur); cur = ""; }
+      else cur += ch;
+    }
+    out.push(cur);
+    return out.map(s => s.trim());
+  };
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  /* ---------------- tabs ---------------- */
+  $$(".tabs button").forEach(b => b.addEventListener("click", () => {
+    $$(".tabs button").forEach(x => x.classList.toggle("on", x === b));
+    $$("section").forEach(s => s.classList.toggle("on", s.id === b.dataset.tab));
+  }));
+
+  /* ---------------- 番茄钟 ---------------- */
+  const P = {
+    el: { clock: $("#clock"), ring: $("#ring"), label: $("#modeLabel"),
+          toggle: $("#btnToggle"), reset: $("#btnReset"),
+          done: $("#doneCount"), total: $("#totalMin") },
+    durations: { work: 25 * 60, short: 5 * 60, long: 15 * 60 },
+    names: { work: "专注中", short: "短休息", long: "长休息" },
+    state: { mode: "work", left: 25 * 60, running: false, endAt: 0, timer: null },
+    CIRC: 2 * Math.PI * 103,
+
+    init() {
+      this.el.ring.setAttribute("stroke-dasharray", this.CIRC);
+      const stats = store.get("mt.pomo", { day: today(), done: 0, min: 0 });
+      if (stats.day !== today()) { stats.day = today(); stats.done = 0; stats.min = 0; store.set("mt.pomo", stats); }
+      this.stats = stats;
+      this.render();
+      this.el.toggle.addEventListener("click", () => this.toggle());
+      this.el.reset.addEventListener("click", () => this.reset());
+      $$(".modes button").forEach(b => b.addEventListener("click", () => {
+        if (this.state.running && !confirm("计时中，切换会重置当前进度，继续？")) return;
+        this.setMode(b.dataset.mode);
+      }));
+      window.addEventListener("beforeunload", e => {
+        if (this.state.running) { e.preventDefault(); e.returnValue = ""; }
+      });
+    },
+    setMode(m) {
+      this.state.mode = m;
+      this.state.left = this.durations[m];
+      this.state.running = false;
+      clearInterval(this.state.timer);
+      $$(".modes button").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
+      this.el.toggle.textContent = "开始";
+      this.el.label.textContent = this.names[m];
+      this.render();
+    },
+    toggle() {
+      if (this.state.running) { this.pause(); } else { this.start(); }
+    },
+    start() {
+      this.state.running = true;
+      this.state.endAt = Date.now() + this.state.left * 1000;
+      this.el.toggle.textContent = "暂停";
+      document.title = `${this.fmt(this.state.left)} · 米团小工具`;
+      this.state.timer = setInterval(() => this.tick(), 250);
+      this.render();
+    },
+    pause() {
+      this.state.running = false;
+      this.state.left = Math.max(0, Math.round((this.state.endAt - Date.now()) / 1000));
+      clearInterval(this.state.timer);
+      this.el.toggle.textContent = "继续";
+      document.title = "米团小工具";
+      this.render();
+    },
+    reset() {
+      this.state.running = false;
+      clearInterval(this.state.timer);
+      this.state.left = this.durations[this.state.mode];
+      this.el.toggle.textContent = "开始";
+      document.title = "米团小工具";
+      this.render();
+    },
+    tick() {
+      const left = Math.max(0, Math.round((this.state.endAt - Date.now()) / 1000));
+      this.state.left = left;
+      document.title = `${this.fmt(left)} · 米团小工具`;
+      this.render();
+      if (left <= 0) this.finish();
+    },
+    finish() {
+      clearInterval(this.state.timer);
+      this.state.running = false;
+      this.beep();
+      if (this.state.mode === "work") {
+        const s = store.get("mt.pomo", { day: today(), done: 0, min: 0 });
+        if (s.day !== today()) { s.day = today(); s.done = 0; s.min = 0; }
+        s.done += 1; s.min += 25;
+        store.set("mt.pomo", s);
+        this.stats = s;
+        this.setMode(s.done % 4 === 0 ? "long" : "short");
+        this.el.label.textContent = "专注完成，休息一下";
+      } else {
+        this.setMode("work");
+        this.el.label.textContent = "休息结束，开工";
+      }
+      this.render();
+    },
+    fmt(sec) {
+      const m = Math.floor(sec / 60), s = sec % 60;
+      return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    },
+    render() {
+      const total = this.durations[this.state.mode];
+      this.el.clock.textContent = this.fmt(this.state.left);
+      const ratio = Math.max(0, Math.min(1, this.state.left / total));
+      this.el.ring.setAttribute("stroke-dashoffset", this.CIRC * (1 - ratio));
+      this.el.ring.style.stroke = this.state.mode === "work" ? "var(--accent)"
+        : this.state.mode === "short" ? "var(--accent2)" : "var(--warn)";
+      this.el.done.textContent = this.stats.done;
+      this.el.total.textContent = this.stats.min;
+    },
+    beep() {
+      try {
+        const ac = new (window.AudioContext || window.webkitAudioContext)();
+        [0, 0.35, 0.7].forEach((t, i) => {
+          const o = ac.createOscillator(), g = ac.createGain();
+          o.type = "sine";
+          o.frequency.value = i === 2 ? 880 : 660;
+          g.gain.setValueAtTime(0.0001, ac.currentTime + t);
+          g.gain.exponentialRampToValueAtTime(0.25, ac.currentTime + t + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + t + 0.28);
+          o.connect(g).connect(ac.destination);
+          o.start(ac.currentTime + t); o.stop(ac.currentTime + t + 0.3);
+        });
+        setTimeout(() => ac.close(), 1500);
+      } catch {}
+    }
+  };
+
+  /* ---------------- 备份 ---------------- */
+  const BACKUP_KEYS = ["mt.pomo", "mt.todo", "mt.ledger"];
+  const Backup = {
+    el: { exp: $("#bakExport"), imp: $("#bakImport"), file: $("#bakFile") },
+    init() {
+      this.el.exp.addEventListener("click", () => this.download());
+      this.el.imp.addEventListener("click", () => this.el.file.click());
+      this.el.file.addEventListener("change", (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (f) this.restore(f);
+        e.target.value = "";
+      });
+    },
+    download() {
+      const data = { _meta: { app: "米团小工具", v: 1, at: new Date().toISOString() } };
+      for (const k of BACKUP_KEYS) data[k] = store.get(k, null);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `米团小工具备份-${today()}.json`;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    },
+    async restore(f) {
+      try {
+        const data = JSON.parse(await f.text());
+        if (!data || typeof data !== "object") throw new Error("不是合法的 JSON");
+        const keys = BACKUP_KEYS.filter((k) => k in data);
+        if (!keys.length) throw new Error("文件里没有可恢复的数据（mt.pomo / mt.todo / mt.ledger）");
+        const names = keys.map((k) => k.replace("mt.", "")).join(" / ");
+        if (!confirm(`恢复这份备份？\n\n包含：${names}${data._meta?.at ? "\n备份时间：" + data._meta.at.slice(0, 19).replace("T", " ") : ""}\n\n当前数据会被覆盖。`)) return;
+        for (const k of keys) store.set(k, data[k]);
+        location.reload();
+      } catch (e) {
+        alert("恢复失败：" + (e && e.message ? e.message : e));
+      }
+    }
+  };
+
+  /* ---------------- 待办 ---------------- */
+  const T = {
+    items: store.get("mt.todo", []),
+    filter: "all",
+    el: { input: $("#todoInput"), add: $("#todoAdd"), list: $("#todoList"),
+          stat: $("#todoStat"), clear: $("#todoClear"), due: $("#todoDue") },
+    init() {
+      this.el.add.addEventListener("click", () => this.add());
+      this.el.input.addEventListener("keydown", e => { if (e.key === "Enter") this.add(); });
+      $$(".filters button").forEach(b => b.addEventListener("click", () => {
+        this.filter = b.dataset.filter;
+        $$(".filters button").forEach(x => x.classList.toggle("on", x === b));
+        this.render();
+      }));
+      this.el.clear.addEventListener("click", () => {
+        if (!this.items.some(i => i.done)) return;
+        this.items = this.items.filter(i => !i.done);
+        this.save(); this.render();
+      });
+      this.render();
+    },
+    add() {
+      const t = this.el.input.value.trim();
+      if (!t) return;
+      const due = this.el.due.value || null;
+      if (due && "Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission();   // 用户第一次设截止时间时问一次
+      }
+      this.items.unshift({ id: Date.now(), text: t, done: false, due });
+      this.el.input.value = "";
+      this.el.due.value = "";
+      this.save(); this.render();
+    },
+    /** 每分钟看一遍：到点且没提醒过的，弹个系统通知 */
+    checkDue() {
+      if (!("Notification" in window) || Notification.permission !== "granted") return;
+      const nowMs = Date.now();
+      let changed = false;
+      for (const it of this.items) {
+        if (it.done || !it.due || it.notified) continue;
+        const t = new Date(it.due).getTime();
+        if (Number.isFinite(t) && t <= nowMs) {
+          try { new Notification("待办到点啦", { body: it.text, tag: "todo-" + it.id }); } catch {}
+          it.notified = true;
+          changed = true;
+        }
+      }
+      if (changed) { this.save(); this.render(); }
+    },
+    save() { store.set("mt.todo", this.items); },
+    render() {
+      const list = this.items.filter(i =>
+        this.filter === "all" || (this.filter === "open" ? !i.done : i.done));
+      this.el.list.innerHTML = list.length ? list.map(i => `
+        <div class="item ${i.done ? "done" : ""}" data-id="${i.id}">
+          <button class="chk ${i.done ? "on" : ""}" data-act="toggle">✓</button>
+          <div class="grow txt">${esc(i.text)}${i.due ? `<span class="dueAt ${dueClass(i.due)}">⏰ ${esc(i.due.replace("T", " "))}</span>` : ""}</div>
+          <button class="del" data-act="del">✕</button>
+        </div>`).join("") : `<div class="empty">这里空空的</div>`;
+      const open = this.items.filter(i => !i.done).length;
+      this.el.stat.textContent = `未完成 ${open} 项 / 共 ${this.items.length} 项`;
+      this.el.list.querySelectorAll("[data-act]").forEach(b => b.addEventListener("click", e => {
+        const id = Number(e.target.closest(".item").dataset.id);
+        if (e.target.dataset.act === "toggle") {
+          const it = this.items.find(x => x.id === id);
+          if (it) it.done = !it.done;
+        } else {
+          this.items = this.items.filter(x => x.id !== id);
+        }
+        this.save(); this.render();
+      }));
+    }
+  };
+
+  /* ---------------- 记账 ---------------- */
+  const L = {
+    rows: store.get("mt.ledger", []),
+    pick: null,   // 手动选的月份；null = 自动用最近有数据的那个月
+    el: { type: $("#ldType"), amt: $("#ldAmt"), cat: $("#ldCat"), note: $("#ldNote"),
+          add: $("#ldAdd"), list: $("#ldList"), stat: $("#ldStat"),
+          out: $("#sumOut"), in: $("#sumIn"), net: $("#sumNet"),
+          month: $("#ldMonth"), monthHint: $("#ldMonthHint"),
+          file: $("#ldFile"), importBtn: $("#ldImport"), hint: $("#ldImportHint") },
+    init() {
+      this.el.add.addEventListener("click", () => this.add());
+      this.el.amt.addEventListener("keydown", e => { if (e.key === "Enter") this.add(); });
+      this.el.month.addEventListener("change", () => {
+        this.pick = this.el.month.value;
+        this.render();
+      });
+      this.el.importBtn.addEventListener("click", () => this.el.file.click());
+      this.el.file.addEventListener("change", (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (f) this.importBill(f);
+        e.target.value = "";
+      });
+      this.render();
+    },
+    add() {
+      const amt = parseFloat(this.el.amt.value);
+      if (!(amt > 0)) { this.el.amt.focus(); return; }
+      this.rows.unshift({
+        id: Date.now(), day: today(), type: this.el.type.value, amt: Math.round(amt * 100) / 100,
+        cat: this.el.cat.value.trim() || "其他", note: this.el.note.value.trim()
+      });
+      this.el.amt.value = ""; this.el.note.value = "";
+      this.el.amt.focus();
+      this.save(); this.render();
+    },
+    save() { store.set("mt.ledger", this.rows); },
+
+    /** 本月分类饼图 + 每日支出条形 */
+    renderCharts(month) {
+      const svg = $("#ldPie"), legend = $("#ldLegend"), daily = $("#ldDaily");
+      if (!svg || !legend || !daily) return;
+      const out = month.filter((r) => r.type === "out");
+      const byCat = {};
+      for (const r of out) byCat[r.cat] = (byCat[r.cat] || 0) + r.amt;
+      const cats = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+      const total = cats.reduce((s, [, v]) => s + v, 0);
+
+      svg.innerHTML = ""; legend.innerHTML = ""; daily.innerHTML = "";
+      if (!cats.length) {
+        legend.innerHTML = '<div style="color:var(--dim)">这个月没有支出</div>';
+        daily.innerHTML = '<div style="color:var(--dim)">这个月没有支出</div>';
+        return;
+      }
+      const COLORS = ["#4dc9c0", "#7aa2f7", "#b98cff", "#f0a35e", "#e5646e", "#5ec97a", "#f2c94c", "#8b98a9"];
+      const R = 40, C = 2 * Math.PI * R;
+      let acc = 0;
+      cats.slice(0, 8).forEach(([k, v], i) => {
+        const len = (v / total) * C;
+        const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        c.setAttribute("cx", 50); c.setAttribute("cy", 50); c.setAttribute("r", R);
+        c.setAttribute("fill", "none");
+        c.setAttribute("stroke", COLORS[i % COLORS.length]);
+        c.setAttribute("stroke-width", 13);
+        c.setAttribute("stroke-dasharray", `${Math.max(0, len - 1)} ${C}`);
+        c.setAttribute("stroke-dashoffset", -acc);
+        c.setAttribute("transform", "rotate(-90 50 50)");
+        svg.appendChild(c);
+        acc += len;
+        const row = document.createElement("div");
+        row.innerHTML = `<i style="background:${COLORS[i % COLORS.length]}"></i><span>${esc(k)}</span><b>${v.toFixed(2)}</b>`;
+        legend.appendChild(row);
+      });
+      const t1 = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      t1.setAttribute("x", 50); t1.setAttribute("y", 51); t1.setAttribute("text-anchor", "middle");
+      t1.setAttribute("dominant-baseline", "middle");
+      t1.setAttribute("fill", "var(--txt)"); t1.setAttribute("font-size", "15"); t1.setAttribute("font-weight", "600");
+      t1.textContent = total.toFixed(0);
+      svg.appendChild(t1);
+
+      const byDay = {};
+      for (const r of out) byDay[r.day] = (byDay[r.day] || 0) + r.amt;
+      const days = Object.entries(byDay).sort((a, b) => (a[0] < b[0] ? 1 : -1)).slice(0, 15);
+      const max = Math.max(1, ...days.map((d) => d[1]));
+      daily.innerHTML = days.map(([d, v]) => `
+        <div class="drow"><span>${d.slice(5)}</span>
+          <div class="dtrack"><div class="dfill" style="width:${(v / max) * 100}%"></div></div>
+          <b>${v.toFixed(2)}</b></div>`).join("");
+    },
+
+    /* ── 账单导入 ──────────────────────────────────────────────────
+     * 支付宝和微信导出的 CSV 都不是「干净的 CSV」：
+     *   - 前面几行是账号/时间范围的说明，真正的表头在中间
+     *   - 支付宝老版本是 GBK，微信是 UTF-8 with BOM
+     *   - 金额带 ¥ 和千分位，收支列写「收入/支出/不计收支」
+     * 所以先探测编码 → 找表头行 → 再按列名取，别写死列下标。
+     */
+    async importBill(file) {
+      const hint = (t, bad) => {
+        this.el.hint.textContent = t;
+        this.el.hint.style.color = bad ? "var(--warn)" : "var(--dim)";
+      };
+      try {
+        hint("正在读取…");
+        const buf = await file.arrayBuffer();
+        let text = new TextDecoder("utf-8").decode(buf);
+        // utf-8 解不对时会出现替换字符 U+FFFD，这时候试 GBK（支付宝老版本）
+        if (text.includes("\ufffd") || /[\u00c0-\u00ff]{4,}/.test(text.slice(0, 300))) {
+          try { text = new TextDecoder("gbk").decode(buf); } catch {}
+        }
+        text = text.replace(/^\ufeff/, "");
+
+        const lines = text.split(/\r?\n/);
+        // 找表头：含「金额」且含「交易时间 / 交易创建时间 / 收/支」的那一行
+        let headerIdx = -1;
+        for (let i = 0; i < Math.min(lines.length, 60); i++) {
+          const ln = lines[i];
+          if (/金额/.test(ln) && /(交易时间|交易创建时间|付款时间|收\s*\/\s*支)/.test(ln)) { headerIdx = i; break; }
+        }
+        if (headerIdx < 0) { hint("❌ 没认出表头。请确认是支付宝或微信导出的原始 CSV，不是 Excel 另存过的。", true); return; }
+
+        const cols = parseCsvLine(lines[headerIdx]).map(c => c.replace(/\s/g, ""));
+        const find = (...names) => cols.findIndex(c => names.some(n => c.includes(n)));
+        const iTime = find("交易时间", "交易创建时间", "付款时间");
+        const iAmt = find("金额");
+        const iType = find("收/支", "收支");
+        const iWho = find("交易对方");
+        const iGoods = find("商品名称", "商品");
+        const iRemark = find("备注");
+        const iId = find("交易单号", "交易号", "商户单号");
+
+        if (iTime < 0 || iAmt < 0 || iType < 0) {
+          hint("❌ 表头里缺「交易时间 / 金额 / 收\/支」这几列，导不了。", true); return;
+        }
+
+        const normDay = (v) => {
+          const m = String(v || "").match(/(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})/);
+          return m ? `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}` : today();
+        };
+        const guessCat = (t) => {
+          const x = String(t || "");
+          if (/饭|餐|外卖|奶茶|咖啡|食堂|烧烤|火锅|吃/.test(x)) return "吃饭";
+          if (/地铁|公交|打车|滴滴|高铁|火车|机票|加油|停车|单车/.test(x)) return "交通";
+          if (/超市|淘宝|京东|拼多多|便利店|商场|购物|天猫/.test(x)) return "购物";
+          if (/房租|租金|物业/.test(x)) return "房租";
+          if (/电影|游戏|音乐|会员|视频|KTV|演出/.test(x)) return "娱乐";
+          if (/药|医院|挂号|体检|诊所/.test(x)) return "医药";
+          if (/工资|薪资|报销|转账.*收入/.test(x)) return "工资";
+          return "其他";
+        };
+
+        const seen = new Set(this.rows.map(r => r.ext).filter(Boolean));
+        let added = 0, skipped = 0, bad = 0;
+        for (let i = headerIdx + 1; i < lines.length; i++) {
+          const ln = lines[i];
+          if (!ln || !ln.trim()) continue;
+          const rec = parseCsvLine(ln);
+          if (rec.length < 3) continue;
+          const typeRaw = String(rec[iType] || "").trim();
+          if (!/收入|支出/.test(typeRaw)) { if (typeRaw) bad++; continue; }  // 「不计收支」跳过
+          const amt = Math.abs(parseFloat(String(rec[iAmt] || "").replace(/[¥￥,，\s]/g, "")));
+          if (!(amt > 0)) { bad++; continue; }
+
+          const day = normDay(rec[iTime]);
+          const who = iWho >= 0 ? String(rec[iWho] || "").trim() : "";
+          const goods = iGoods >= 0 ? String(rec[iGoods] || "").trim() : "";
+          const remark = iRemark >= 0 ? String(rec[iRemark] || "").trim() : "";
+          const extKey = iId >= 0 ? String(rec[iId] || "").trim() : `${day}|${amt}|${who}`;
+
+          if (seen.has(extKey)) { skipped++; continue; }
+          seen.add(extKey);
+
+          const noteParts = [who, goods, remark].filter(Boolean);
+          this.rows.unshift({
+            id: Date.now() + added,      // 同一毫秒内导入多条时靠 added 拉开
+            day, type: /收入/.test(typeRaw) ? "in" : "out",
+            amt: Math.round(amt * 100) / 100,
+            cat: guessCat(goods + " " + who + " " + remark),
+            note: noteParts.join(" · ").slice(0, 60),
+            ext: extKey,
+          });
+          added++;
+        }
+
+        this.save();
+        this.render();
+        const extra = bad ? `，跳过 ${bad} 笔无效/不计收支` : "";
+        hint(`✅ 导入 ${added} 笔${skipped ? `，${skipped} 笔重复已跳过` : ""}${extra}`, false);
+      } catch (e) {
+        hint("❌ 读文件失败：" + (e && e.message ? e.message : e), true);
+      }
+    },
+    /** 有数据的月份，新的在前 */
+    months() {
+      return [...new Set(this.rows.map(r => r.day.slice(0, 7)))].sort().reverse();
+    },
+    /** 当前该看哪个月：手动选的 > 最近有数据的 > 当月 */
+    currentMonth() {
+      const ms = this.months();
+      if (!ms.length) return today().slice(0, 7);
+      if (this.pick && ms.includes(this.pick)) return this.pick;
+      return ms[0];
+    },
+    render() {
+      const m = this.currentMonth();
+      const month = this.rows.filter(r => r.day.startsWith(m));
+      const sum = (t) => month.filter(r => r.type === t).reduce((a, b) => a + b.amt, 0);
+      const out = sum("out"), inc = sum("in");
+      this.el.out.textContent = out.toFixed(2);
+      this.el.in.textContent = inc.toFixed(2);
+      this.el.net.textContent = (inc - out).toFixed(2);
+      this.el.net.style.color = inc - out < 0 ? "var(--bad)" : "var(--ok)";
+
+      const list = this.rows.slice(0, 200);
+      this.el.list.innerHTML = list.length ? list.map(r => `
+        <div class="item" data-id="${r.id}">
+          <span class="tag ${r.type}">${r.type === "out" ? "支" : "收"}</span>
+          <div class="grow"><div class="txt">${esc(r.cat)}${r.note ? ` · <span style="color:var(--dim)">${esc(r.note)}</span>` : ""}</div>
+            <div style="color:var(--dim);font-size:12px">${r.day}</div></div>
+          <span class="amt" style="color:${r.type === "out" ? "var(--warn)" : "var(--ok)"}">
+            ${r.type === "out" ? "-" : "+"}${r.amt.toFixed(2)}</span>
+          <button class="del" data-act="del">✕</button>
+        </div>`).join("") : `<div class="empty">还没记账</div>`;
+      // 导入历史账单后「本月」可能还是 0，这里把累计也带上，免得以为没导进去
+      const allOut = this.rows.filter(r => r.type === "out").reduce((a, b) => a + b.amt, 0);
+      const allIn = this.rows.filter(r => r.type === "in").reduce((a, b) => a + b.amt, 0);
+      if (this.el.month) {
+        const ms = this.months();
+        this.el.month.innerHTML = ms.length
+          ? ms.map(x => `<option value="${x}"${x === m ? " selected" : ""}>${x.slice(0, 4)} 年 ${Number(x.slice(5))} 月</option>`).join("")
+          : `<option>${m.slice(0, 4)} 年 ${Number(m.slice(5))} 月</option>`;
+        this.el.monthHint.textContent = ms.length > 1 ? `共 ${ms.length} 个月有记录` : "";
+      }
+      this.renderCharts(month);
+
+      this.el.stat.textContent = this.rows.length
+        ? `当月 ${month.length} 笔 · 全部 ${this.rows.length} 笔（支出 ${allOut.toFixed(2)} / 收入 ${allIn.toFixed(2)}）`
+        : "还没有记录";
+      this.el.list.querySelectorAll("[data-act=del]").forEach(b => b.addEventListener("click", e => {
+        const id = Number(e.target.closest(".item").dataset.id);
+        this.rows = this.rows.filter(x => x.id !== id);
+        this.save(); this.render();
+      }));
+    }
+  };
+
+  /** 截止时间的状态色：超时红、一小时内黄 */
+  const dueClass = (due) => {
+    const t = new Date(due).getTime();
+    if (!Number.isFinite(t)) return "";
+    const left = t - Date.now();
+    if (left < 0) return "late";
+    if (left < 3600e3) return "soon";
+    return "";
+  };
+
+  Backup.init(); P.init(); T.init(); L.init();
+  T.checkDue();
+  setInterval(() => T.checkDue(), 60000);
+})();
+</script>
+</body>
+</html>
